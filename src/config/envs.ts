@@ -17,6 +17,7 @@ const envSchema = z
     RMQ_EVENTS_QUEUE_ORDERS: z.string().min(1, 'RMQ_EVENTS_QUEUE_ORDERS cannot be empty'),
     REDIS_HOST: z.string(),
     REDIS_PORT: z.coerce.number().default(6379),
+    REDIS_PASS: z.string(),
   })
   .required();
 
@@ -43,4 +44,5 @@ export const envs = {
   rabbitmqOrdersEventQueue: parsedEnv.data.RMQ_EVENTS_QUEUE_ORDERS,
   redisHost: parsedEnv.data.REDIS_HOST,
   redisPort: parsedEnv.data.REDIS_PORT,
+  redisPass: parsedEnv.data.REDIS_PASS
 };

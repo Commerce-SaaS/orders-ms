@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { OrderItem } from './order-item.entity';
 import { OrderCurrency } from 'src/common/enums/order-currency.enum';
+import { PaymentStatus } from 'src/common/enums/payment-status.enum';
 
 @Entity('orders')
 @Index(['organizationId', 'createdAt'])
@@ -17,10 +18,16 @@ import { OrderCurrency } from 'src/common/enums/order-currency.enum';
 @Index(['userId'])
 export class Order {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  customerName?: string;
+
+  @Column({ type: 'int' })
+  orderNumber: number;
 
   @Column({ type: 'uuid' })
-  organizationId: string;
+  organizationId!: string;
 
   @Column({ type: 'uuid', nullable: true })
   userId?: string;
@@ -34,18 +41,40 @@ export class Order {
 
   @Column({
     type: 'enum',
+    enum: PaymentStatus,
+    default: PaymentStatus.PENDING,
+  })
+  paymentStatus: PaymentStatus;
+
+  @Column({
+    type: 'enum',
     enum: OrderCurrency,
     default: OrderCurrency.EUR,
   })
   currency: OrderCurrency;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      from: (v: string) => parseFloat(v),
+      to: (v: number) => v,
+    },
+  })
   subtotal: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      from: (v: string) => parseFloat(v),
+      to: (v: number) => v,
+    },
+  })
   total: number;
 
-  // 🔥 Aggregate root relation
   @OneToMany(() => OrderItem, (item) => item.order, {
     eager: true,
     cascade: true,

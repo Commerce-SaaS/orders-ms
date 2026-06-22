@@ -37,13 +37,29 @@ export class OrderItem {
   @Column({ length: 150 })
   name: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      from: (v: string) => parseFloat(v),
+      to: (v: number) => v,
+    },
+  })
   unitPrice: number;
 
   @Column({ type: 'int' })
   quantity: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      from: (v: string) => parseFloat(v),
+      to: (v: number) => v,
+    },
+  })
   total: number;
 
   // 🔥 Extras

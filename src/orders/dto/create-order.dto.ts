@@ -1,9 +1,11 @@
 import { Type } from 'class-transformer';
 import {
   IsOptional,
+  IsString,
   IsUUID,
   IsEnum,
   IsArray,
+  IsNumber,
   ValidateNested,
   ArrayMinSize,
 } from 'class-validator';
@@ -13,7 +15,11 @@ import { CreateOrderItemDto } from './create-order-item.dto';
 export class CreateOrderDto {
   @IsUUID()
   organizationId: string;
-  
+
+  @IsString()
+  @IsOptional()
+  customerName?: string;
+
   @IsOptional()
   @IsUUID()
   userId?: string;

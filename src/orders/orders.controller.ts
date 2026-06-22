@@ -1,16 +1,15 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Logger } from '@nestjs/common';
 import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { ORDER_PATTERNS } from './patterns/order-patterns';
 import { FindOneByOrgDto } from 'src/common/dto/find-one-by-org.dto';
-// import { PaymentSucceededEvent } from './events/payment-succeeded.event';
-// import { PaymentFailedEvent } from './events/payment-failed.event';
-// import { PaymentRefundedEvent } from './events/payment-refunded.event';
+import { OrdersPaginationDto } from 'src/common';
 
 @Controller()
 export class OrdersController {
+  private readonly logger = new Logger(OrdersController.name);
   constructor(private readonly ordersService: OrdersService) {}
 
   @MessagePattern(ORDER_PATTERNS.CREATE)
@@ -18,28 +17,37 @@ export class OrdersController {
     return this.ordersService.create(createOrderDto);
   }
 
-  // @MessagePattern(ORDER_PATTERNS.FIND_ALL)
-  // findAll() {
-  //   return this.ordersService.findAll();
-  // }
+  @MessagePattern(ORDER_PATTERNS.FIND_ALL)
+  findAll(@Payload() paginationDto: OrdersPaginationDto) {
+    return this.ordersService.findAll(paginationDto);
+  }
+
+  @MessagePattern(ORDER_PATTERNS.UPDATE)
+  update(@Payload() updateOrderDto: UpdateOrderDto) {
+    return this.ordersService.update(updateOrderDto);
+  }
 
   @MessagePattern(ORDER_PATTERNS.FIND_ONE)
   findOne(@Payload() dto: FindOneByOrgDto) {
     return this.ordersService.findOne(dto);
   }
 
-  // @MessagePattern(ORDER_PATTERNS.CANCEL)
-  // cancel(@Payload() id: string) {
-  //   return this.ordersService.cancel(id);
-  // }
-
-  // // Event Handlers for Payment Events
-  // // @EventPattern('order.updated')
-  // // onPaymentSucceeded(event: PaymentSucceededEvent) {}
-
-  // // @EventPattern('payment.failed')
-  // // onPaymentFailed(event: PaymentFailedEvent) {}
-
-  // // @EventPattern('payment.refunded')
-  // // onPaymentRefunded(event: PaymentRefundedEvent) {}
+  // Event Handlers for Payment Events
+  @EventPattern(ORDER_PATTERNS.PAYMENT_STATUS)
+  onPaymentStatus(@Payload() data: UpdateOrderDto) {
+    if (data.paymentStatus && data.organizationId) {
+      return this.ordersService.updatePaymentStatus(
+        data.id,
+        data.paymentStatus,
+        data.organizationId,
+      );
+    } else {
+      this.logger.warn(
+        `PAYMENT_STATUS event ignored: missing fields ` +
+          `(orderId=${data.id ?? 'none'}, ` +
+          `paymentStatus=${data.paymentStatus ?? 'none'}, ` +
+          `organizationId=${data.organizationId ?? 'none'})`,
+      );
+    }
+  }
 }

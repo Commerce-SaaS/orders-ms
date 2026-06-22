@@ -2,13 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
-import { DataSource } from 'typeorm';
+import { DataSource, FindOptionsWhere } from 'typeorm';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { OrderItemExtra } from './entities/order-item-extra.entity';
 import { OrderItemRemovedIngredient } from './entities/order-item-removed-ingredient.entity';
 import { RpcExceptionHelper } from 'src/common/helpers/rpc-exception.helper';
 import { FindOneByOrgDto } from 'src/common/dto/find-one-by-org.dto';
+import { PaymentStatus } from 'src/common/enums/payment-status.enum';
+import { OrdersPaginationDto } from 'src/common/dto/orders-pagination.dto';
+import { CreateOrderItemDto } from './dto/create-order-item.dto';
 
 @Injectable()
 export class OrdersService {
@@ -23,7 +26,8 @@ export class OrdersService {
     await queryRunner.startTransaction();
 
     try {
-      const { items, userId, status, organizationId } = createOrderDto;
+      const { items, userId, status, organizationId, customerName } =
+        createOrderDto;
 
       const { subtotal, total } = this.calculateTotals(items);
 
@@ -33,6 +37,8 @@ export class OrdersService {
         status: status ?? OrderStatus.PENDING,
         subtotal,
         total,
+        customerName,
+        orderNumber: await this.generateOrderNumber(organizationId),
       });
 
       await queryRunner.manager.save(order);
@@ -105,25 +111,117 @@ export class OrdersService {
   }
 
   // ===============================
-  // FIND ORDER (UI STRUCTURE)
+  // FIND ORDER
   // ===============================
+
   async findOne(dto: FindOneByOrgDto) {
+    const where: FindOptionsWhere<Order> = {
+      id: dto.id,
+      organizationId: dto.organizationId,
+    };
+    if (dto.userId) where.userId = dto.userId;
+
     const order = await this.dataSource.getRepository(Order).findOne({
-      where: { id: dto.id, organizationId: dto.organizationId },
+      where,
       relations: ['items', 'items.extras', 'items.removedIngredients'],
+    });
+
+    if (!order) RpcExceptionHelper.notFound('Order');
+    return this.mapOrderResponse(order);
+  }
+
+  async findAll(paginationDto: OrdersPaginationDto) {
+    const {
+      organizationId,
+      offset = 0,
+      limit = 20,
+      search,
+      userId,
+    } = paginationDto;
+
+    const effectiveLimit = limit > 0 ? limit : 20;
+
+    const baseQuery = this.dataSource
+      .getRepository(Order)
+      .createQueryBuilder('order')
+      .where('order.organizationId = :organizationId', { organizationId });
+
+    if (userId) {
+      baseQuery.andWhere('order.userId = :userId', { userId });
+    }
+
+    if (search) {
+      baseQuery.andWhere(
+        '("order"."id"::text ILIKE :search OR "order"."customerName" ILIKE :search OR "order"."orderNumber"::text ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    const totalItems = await baseQuery.getCount();
+
+    const items = await baseQuery
+      .clone()
+      .leftJoinAndSelect('order.items', 'items')
+      .leftJoinAndSelect('items.extras', 'extras')
+      .orderBy('order.createdAt', 'DESC')
+      .skip(offset)
+      .take(effectiveLimit)
+      .getMany();
+
+    return {
+      items: items.map((order) => this.mapOrderListItem(order)),
+      totalItems,
+      totalPages: Math.ceil(totalItems / effectiveLimit),
+      currentPage: Math.floor(offset / effectiveLimit) + 1,
+      hasMore: offset + effectiveLimit < totalItems,
+    };
+  }
+
+  async update(updateOrderDto: UpdateOrderDto) {
+    const { id } = updateOrderDto;
+    const repo = this.dataSource.getRepository(Order);
+
+    const order = await repo.findOne({
+      where: { id, organizationId: updateOrderDto.organizationId },
     });
 
     if (!order) {
       RpcExceptionHelper.notFound('Order');
     }
 
-    return this.mapOrderResponse(order);
+    if (
+      updateOrderDto.status &&
+      !this.validateStateTransition(
+        order.status,
+        updateOrderDto.status as OrderStatus,
+      )
+    ) {
+      RpcExceptionHelper.badRequestException(
+        `Invalid status transition from ${order.status} to ${updateOrderDto.status}`,
+      );
+    }
+
+    repo.merge(order, updateOrderDto);
+
+    return repo.save(order);
+  }
+
+  async updatePaymentStatus(
+    id: string,
+    paymentStatus: PaymentStatus,
+    organizationId: string,
+  ) {
+    const repo = this.dataSource.getRepository(Order);
+    const order = await repo.findOne({ where: { id, organizationId } });
+    if (!order) RpcExceptionHelper.notFound('Order');
+    order.paymentStatus = paymentStatus;
+    return repo.save(order);
   }
 
   // ===============================
   // CALCULATE TOTALS
   // ===============================
-  private calculateTotals(items: any[]) {
+  private calculateTotals(items: CreateOrderItemDto[]) {
     let subtotal = 0;
 
     for (const item of items) {
@@ -140,12 +238,53 @@ export class OrdersService {
   }
 
   // ===============================
+  // GENERATE ORDER NUMBER (SEQUENTIAL PER ORGANIZATION)
+  // ===============================
+  async generateOrderNumber(organizationId: string) {
+    const lastOrder = await this.dataSource
+      .getRepository(Order)
+      .createQueryBuilder('order')
+      .where('order.organizationId = :organizationId', { organizationId })
+      .orderBy('order.orderNumber', 'DESC')
+      .setLock('pessimistic_write')
+      .getOne();
+
+    return (lastOrder?.orderNumber ?? 0) + 1;
+  }
+
+  // ===============================
   // MAP FOR FRONTEND (UI)
   // ===============================
+  private mapOrderListItem(order: Order) {
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      currency: order.currency,
+      subtotal: Number(order.subtotal),
+      total: Number(order.total),
+      createdAt: order.createdAt,
+      items: order.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        total: Number(item.total),
+        extrasCount: item.extras?.length ?? 0,
+      })),
+    };
+  }
+
   private mapOrderResponse(order: Order) {
     return {
       id: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
       status: order.status,
+      paymentStatus: order.paymentStatus,
+      currency: order.currency,
       subtotal: Number(order.subtotal),
       total: Number(order.total),
       createdAt: order.createdAt,
@@ -187,7 +326,7 @@ export class OrdersService {
 
     return {
       orderId: order.id,
-      amount: Number(order.total * 100),
+      amount: Math.round(Number(order.total) * 100),
       lineItems: order.items.map((item) => {
         const extrasTotal =
           item.extras?.reduce(
@@ -211,6 +350,9 @@ export class OrdersService {
     };
   }
 
+  // ===============================
+  // BUILD STRIPE ITEM NAME (INCLUDE EXTRAS)
+  // ===============================
   private buildStripeItemName(item: OrderItem) {
     if (!item.extras?.length) return item.name;
 
@@ -219,64 +361,26 @@ export class OrdersService {
     return `${item.name} (+ ${extrasNames})`;
   }
 
-  // async findAll() {
-  //   return this.dataSource.getRepository(Order).find({
-  //     relations: {
-  //       // solo si luego agregas relación inversa
-  //     },
-  //     order: { createdAt: 'DESC' },
-  //   });
-  // }
+  // ================================
+  // VALIDATE STATUS TRANSITIONS
+  // ================================
+  private validateStateTransition(from: OrderStatus, to: OrderStatus): boolean {
+    const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
+      [OrderStatus.PENDING]: [OrderStatus.IN_PROGRESS, OrderStatus.CANCELLED],
 
-  // async update(id: string, updateOrderDto: UpdateOrderDto) {
-  //   const repo = this.dataSource.getRepository(Order);
+      [OrderStatus.IN_PROGRESS]: [
+        OrderStatus.READY,
+        OrderStatus.COMPLETED,
+        OrderStatus.CANCELLED,
+      ],
 
-  //   const order = await repo.findOne({ where: { id } });
+      [OrderStatus.READY]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
 
-  //   if (!order) {
-  //     RpcExceptionHelper.notFound('Order');
-  //   }
+      [OrderStatus.COMPLETED]: [OrderStatus.REOPENED],
+      [OrderStatus.REOPENED]: [OrderStatus.IN_PROGRESS, OrderStatus.CANCELLED],
+      [OrderStatus.CANCELLED]: [],
+    };
 
-  //   if (
-  //     updateOrderDto.status &&
-  //     !this.validateStateTransition(order.status, updateOrderDto.status)
-  //   ) {
-  //     RpcExceptionHelper.badRequestException(
-  //       `Invalid status transition from ${order.status} to ${updateOrderDto.status}`,
-  //     );
-  //   }
-
-  //   repo.merge(order, updateOrderDto);
-
-  //   return repo.save(order);
-  // }
-
-  // async cancel(id: string) {
-  //   const repo = this.dataSource.getRepository(Order);
-
-  //   const order = await repo.findOne({ where: { id } });
-
-  //   if (!order) {
-  //     RpcExceptionHelper.notFound('Order');
-  //   }
-
-  //   if (order.status === OrderStatus.CANCELLED) {
-  //     return order;
-  //   }
-
-  //   order.status = OrderStatus.CANCELLED;
-
-  //   return repo.save(order);
-  // }
-
-  // private validateStateTransition(from: OrderStatus, to: OrderStatus): boolean {
-  //   const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
-  //     [OrderStatus.PENDING]: [OrderStatus.IN_PROGRESS, OrderStatus.CANCELLED],
-  //     [OrderStatus.IN_PROGRESS]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
-  //     [OrderStatus.COMPLETED]: [],
-  //     [OrderStatus.CANCELLED]: [],
-  //   };
-
-  //   return allowedTransitions[from]?.includes(to);
-  // }
+    return allowedTransitions[from]?.includes(to) ?? false;
+  }
 }

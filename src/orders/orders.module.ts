@@ -5,13 +5,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { OrderItem } from 'src/orders/entities/order-item.entity';
 import { OrderItemExtra } from 'src/orders/entities/order-item-extra.entity';
-import { OrderStatusHistory } from 'src/order-status-history/entities/order-status-history.entity';
 import { OrderItemRemovedIngredient } from './entities/order-item-removed-ingredient.entity';
 
 @Module({
   controllers: [OrdersController],
   providers: [OrdersService],
-  imports: [TypeOrmModule.forFeature([Order, OrderItem, OrderItemExtra, OrderStatusHistory, OrderItemRemovedIngredient])],
+  imports: [TypeOrmModule.forFeature([Order, OrderItem, OrderItemExtra, OrderItemRemovedIngredient])],
   exports: [OrdersService],
 })
 export class OrdersModule {}

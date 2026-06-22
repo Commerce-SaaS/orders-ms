@@ -4,8 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { envs } from './config';
 import { PAYMENTS_EVENTS_CLIENT } from './config/services';
 import { OrdersModule } from './orders/orders.module';
-import { OrderStatusHistoryModule } from './order-status-history/order-status-history.module';
 import { RabbitMQModule } from './config/transports/rabbitmq.module';
+import { RedisModule } from './redis/redis.module';
 
 
 @Module({
@@ -29,8 +29,7 @@ import { RabbitMQModule } from './config/transports/rabbitmq.module';
       url: envs.rabbitmqUrl,
     }),
     OrdersModule,
-
-    OrderStatusHistoryModule,
+    RedisModule
   ],
   controllers: [],
   providers: [],
