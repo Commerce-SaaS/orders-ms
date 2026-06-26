@@ -7,4 +7,7 @@ export const ORDER_PATTERNS = {
 
     // Event patterns for payment events
     PAYMENT_STATUS: "payment.status",
+
+    // Event received from auth-ms when a customer has been anonymized
+    CUSTOMER_ANONYMIZED: "customer.anonymized",
 } as const;

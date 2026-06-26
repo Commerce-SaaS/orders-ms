@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
-import { DataSource, FindOptionsWhere } from 'typeorm';
+import { DataSource, EntityManager, FindOptionsWhere, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { OrderItemExtra } from './entities/order-item-extra.entity';
@@ -15,7 +16,13 @@ import { CreateOrderItemDto } from './dto/create-order-item.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly logger = new Logger(OrdersService.name);
+
+  constructor(
+    private readonly dataSource: DataSource,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
+  ) { }
 
   // ===============================
   // CREATE ORDER
@@ -29,7 +36,15 @@ export class OrdersService {
       const { items, userId, status, organizationId, customerName } =
         createOrderDto;
 
+      this.logger.log(
+        `[ORDER-FLOW] create: start userId=${userId} organizationId=${organizationId} itemCount=${items?.length ?? 0}`,
+      );
+
       const { subtotal, total } = this.calculateTotals(items);
+
+      this.logger.log(
+        `[ORDER-FLOW] create: totals calculated subtotal=${subtotal} total=${total} — generating orderNumber`,
+      );
 
       const order = queryRunner.manager.create(Order, {
         organizationId,
@@ -38,10 +53,14 @@ export class OrdersService {
         subtotal,
         total,
         customerName,
-        orderNumber: await this.generateOrderNumber(organizationId),
+        orderNumber: await this.generateOrderNumber(organizationId, queryRunner.manager),
       });
 
       await queryRunner.manager.save(order);
+
+      this.logger.log(
+        `[ORDER-FLOW] create: order row saved orderId=${order.id} orderNumber=${order.orderNumber} — saving ${items.length} item(s)`,
+      );
 
       for (const item of items) {
         const extrasTotal =
@@ -101,8 +120,16 @@ export class OrdersService {
 
       await queryRunner.commitTransaction();
 
+      this.logger.log(
+        `[ORDER-FLOW] create: transaction committed orderId=${order.id} — fetching stripe line items`,
+      );
+
       return this.mapOrderToStripeLineItems(order.id, organizationId);
     } catch (error) {
+      this.logger.error(
+        `[ORDER-FLOW] create: ERROR userId=${createOrderDto.userId} organizationId=${createOrderDto.organizationId} — ${error?.message}`,
+        error?.stack,
+      );
       await queryRunner.rollbackTransaction();
       throw error;
     } finally {
@@ -240,10 +267,9 @@ export class OrdersService {
   // ===============================
   // GENERATE ORDER NUMBER (SEQUENTIAL PER ORGANIZATION)
   // ===============================
-  async generateOrderNumber(organizationId: string) {
-    const lastOrder = await this.dataSource
-      .getRepository(Order)
-      .createQueryBuilder('order')
+  async generateOrderNumber(organizationId: string, manager: EntityManager) {
+    const lastOrder = await manager
+      .createQueryBuilder(Order, 'order')
       .where('order.organizationId = :organizationId', { organizationId })
       .orderBy('order.orderNumber', 'DESC')
       .setLock('pessimistic_write')
@@ -359,6 +385,22 @@ export class OrdersService {
     const extrasNames = item.extras.map((e) => e.name).join(', ');
 
     return `${item.name} (+ ${extrasNames})`;
+  }
+
+  // ================================
+  // CUSTOMER ANONYMIZATION HANDLER
+  // Nulls the denormalized customerName on all orders belonging to the given
+  // userId. Called when auth-ms emits customer.anonymized.
+  // Safe to call multiple times (UPDATE WHERE userId=X is a no-op once done).
+  // ================================
+  async anonymizeCustomerOrders(userId: string): Promise<void> {
+    const result = await this.orderRepository.update(
+      { userId },
+      { customerName: null as any },
+    );
+    this.logger.log(
+      `customer.anonymized: nulled customerName on ${result.affected ?? 0} order(s) for userId=${userId}`,
+    );
   }
 
   // ================================

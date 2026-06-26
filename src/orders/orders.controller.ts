@@ -14,6 +14,9 @@ export class OrdersController {
 
   @MessagePattern(ORDER_PATTERNS.CREATE)
   create(@Payload() createOrderDto: CreateOrderDto) {
+    this.logger.log(
+      `[ORDER-FLOW] handler received: userId=${createOrderDto.userId} organizationId=${createOrderDto.organizationId} itemCount=${createOrderDto.items?.length ?? 0}`,
+    );
     return this.ordersService.create(createOrderDto);
   }
 
@@ -47,6 +50,20 @@ export class OrdersController {
           `(orderId=${data.id ?? 'none'}, ` +
           `paymentStatus=${data.paymentStatus ?? 'none'}, ` +
           `organizationId=${data.organizationId ?? 'none'})`,
+      );
+    }
+  }
+
+  // Received from auth-ms after a customer is anonymized.
+  // Nulls the denormalized customerName so no real name survives in orders-ms.
+  @EventPattern(ORDER_PATTERNS.CUSTOMER_ANONYMIZED)
+  async onCustomerAnonymized(@Payload() data: { userId: string }) {
+    try {
+      await this.ordersService.anonymizeCustomerOrders(data.userId);
+    } catch (error) {
+      // Log and swallow — a failure here must not crash the RabbitMQ consumer.
+      this.logger.error(
+        `customer.anonymized: failed to anonymize orders for userId=${data.userId}: ${error?.message}`,
       );
     }
   }
