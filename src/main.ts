@@ -25,12 +25,14 @@ async function bootstrap() {
     },
   });
 
-  // 🔹 EVENTS (emit)
+  // 🔹 EVENTS (consume — bound to app.events topic exchange)
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
       urls: [envs.rabbitmqUrl],
       queue: envs.rabbitmqOrdersEventQueue,
+      exchange: 'app.events',
+      exchangeType: 'topic',
       queueOptions: {
         durable: true,
       },

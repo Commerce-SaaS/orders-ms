@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { OrderItemRemovedIngredient } from './order-item-removed-ingredient.entity';
 import { OrderItemExtra } from './order-item-extra.entity';
+import { OrderItemStatus } from 'src/common/enums/order-item-status.enum';
 
 @Entity('order_items')
 @Index(['orderId', 'organizationId'])
@@ -50,6 +51,13 @@ export class OrderItem {
 
   @Column({ type: 'int' })
   quantity: number;
+
+  @Column({
+    type: 'enum',
+    enum: OrderItemStatus,
+    default: OrderItemStatus.NEW,
+  })
+  status: OrderItemStatus;
 
   @Column({
     type: 'decimal',

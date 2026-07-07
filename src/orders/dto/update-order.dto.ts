@@ -1,18 +1,37 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { IsOptional, IsUUID, IsEnum } from 'class-validator';
-import { CreateOrderDto } from './create-order.dto';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
-import { PaymentStatus } from 'src/common/enums/payment-status.enum';
+import { VoidReason } from 'src/common/enums/void-reason.enum';
 
-export class UpdateOrderDto extends PartialType(CreateOrderDto) {
+export class UpdateOrderDto {
   @IsUUID()
   id!: string;
+
+  @IsUUID()
+  organizationId!: string;
+
+  @IsOptional()
+  @IsString()
+  customerName?: string;
 
   @IsOptional()
   @IsEnum(OrderStatus)
   status?: OrderStatus;
 
   @IsOptional()
-  @IsEnum(PaymentStatus)
-  paymentStatus?: PaymentStatus;
+  @IsEnum(VoidReason)
+  voidReason?: VoidReason;
+
+  @ValidateIf((o) => o.voidReason === VoidReason.OTHER)
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(500)
+  voidReasonDetails?: string;
 }

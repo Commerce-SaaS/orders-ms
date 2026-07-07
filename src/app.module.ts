@@ -25,7 +25,7 @@ import { RedisModule } from './redis/redis.module';
     }),
     RabbitMQModule.register({
       name: PAYMENTS_EVENTS_CLIENT,
-      queue: 'events.payments',
+      queue: envs.rabbitmqPaymentEventQueue,
       url: envs.rabbitmqUrl,
     }),
     OrdersModule,

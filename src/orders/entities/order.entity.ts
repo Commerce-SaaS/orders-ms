@@ -11,6 +11,9 @@ import {
 import { OrderItem } from './order-item.entity';
 import { OrderCurrency } from 'src/common/enums/order-currency.enum';
 import { PaymentStatus } from 'src/common/enums/payment-status.enum';
+import { VoidReason } from 'src/common/enums/void-reason.enum';
+
+export { VoidReason };
 
 @Entity('orders')
 @Index(['organizationId', 'createdAt'])
@@ -38,6 +41,21 @@ export class Order {
     default: OrderStatus.PENDING,
   })
   status: OrderStatus;
+
+  @Column({
+    type: 'enum',
+    enum: VoidReason,
+    nullable: true,
+    default: null,
+  })
+  voidReason?: VoidReason | null;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+    default: null,
+  })
+  voidReasonDetails?: string | null;
 
   @Column({
     type: 'enum',
