@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsArray,
   IsNumber,
+  IsDate,
   ValidateNested,
   ArrayMinSize,
 } from 'class-validator';
@@ -27,6 +28,13 @@ export class CreateOrderDto {
   @IsOptional()
   @IsEnum(OrderStatus)
   status?: OrderStatus;
+
+  // Must land exactly on a valid slot boundary for the org's configured
+  // interval and be in the future. Omitted/null = "for now".
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  scheduledFor?: Date;
 
   @IsArray()
   @ArrayMinSize(1)

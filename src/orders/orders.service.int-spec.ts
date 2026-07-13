@@ -65,7 +65,8 @@ describe('OrdersService — SQL scope (real Postgres via testcontainers)', () =>
 
     await dataSource.initialize();
 
-    service = new OrdersService(dataSource);
+    const fakeClientProxy = { emit: () => ({}), send: () => ({ toPromise: () => Promise.resolve(null) }) } as any;
+    service = new OrdersService(dataSource, dataSource.getRepository(Order), fakeClientProxy, fakeClientProxy);
 
     // ── seed ──────────────────────────────────────────────────────────────
     const repo = dataSource.getRepository(Order);

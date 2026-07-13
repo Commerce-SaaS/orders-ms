@@ -13,6 +13,7 @@ import { UpdateOrderItemDto } from './dto/update-order-item.dto';
 import { CreatePosOrderDto } from './dto/create-pos-order.dto';
 import { SendToKitchenDto } from './dto/send-to-kitchen.dto';
 import { MarkItemPreparedDto } from './dto/mark-item-prepared.dto';
+import { GetAvailableSlotsDto } from './dto/get-available-slots.dto';
 
 @Controller()
 export class OrdersController {
@@ -81,6 +82,11 @@ export class OrdersController {
   @MessagePattern(ORDER_PATTERNS.UPDATE_ITEM)
   updateOrderItem(@Payload() dto: UpdateOrderItemDto) {
     return this.ordersService.updateOrderItem(dto);
+  }
+
+  @MessagePattern(ORDER_PATTERNS.AVAILABLE_SLOTS)
+  availableSlots(@Payload() dto: GetAvailableSlotsDto) {
+    return this.ordersService.getAvailableSlots(dto);
   }
 
   // Bulk-flips all NEW items on the order to SENT_TO_KITCHEN.

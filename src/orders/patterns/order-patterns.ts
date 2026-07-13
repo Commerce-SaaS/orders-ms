@@ -9,6 +9,9 @@ export const ORDER_PATTERNS = {
     REMOVE_ITEM: "order.remove_item",
     UPDATE_ITEM: "order.update_item",
 
+    // Scheduled orders
+    AVAILABLE_SLOTS: "order.available_slots",
+
     // Kitchen item-status transitions
     SEND_TO_KITCHEN: "order.send_to_kitchen",
     MARK_ITEM_PREPARED: "order.mark_item_prepared",

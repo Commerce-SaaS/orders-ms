@@ -52,6 +52,12 @@ export class OrderItem {
   @Column({ type: 'int' })
   quantity: number;
 
+  // Snapshot of the product's category flag at order time — see
+  // Category.countsTowardKitchenCapacity in product-ms. Drives how many
+  // "dishes" this item occupies against its OrderSlot's capacity.
+  @Column({ type: 'boolean', default: true })
+  countsTowardKitchenCapacity: boolean;
+
   @Column({
     type: 'enum',
     enum: OrderItemStatus,
@@ -89,3 +95,7 @@ export class OrderItem {
   @CreateDateColumn()
   createdAt: Date;
 }
+
+// PROD MIGRATION NOTE (TypeORM synchronize handles dev automatically; do NOT
+// run synchronize in production):
+//   ALTER TABLE order_items ADD COLUMN "countsTowardKitchenCapacity" boolean NOT NULL DEFAULT true;

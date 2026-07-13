@@ -8,6 +8,7 @@ import {
   IsInt,
   IsString,
   IsNumber,
+  IsBoolean,
   Length,
 } from 'class-validator';
 import { CreateOrderItemRemovedIngredientDto } from './create-order-remove-ingredient.dto';
@@ -28,6 +29,13 @@ export class CreateOrderItemDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   unitPrice: number;
+
+  // Snapshot resolved by the caller from the product's category
+  // (Category.countsTowardKitchenCapacity in product-ms). Defaults to true
+  // (conservative) when omitted.
+  @IsOptional()
+  @IsBoolean()
+  countsTowardKitchenCapacity?: boolean;
 
   @IsOptional()
   @IsArray()

@@ -54,4 +54,19 @@ export class RpcExceptionHelper {
       statusCode: HttpStatus.BAD_REQUEST,
     });
   }
+
+  static conflict(message: string): never {
+    throw new RpcException({
+      message,
+      statusCode: HttpStatus.CONFLICT,
+    });
+  }
+
+  static conflictWithCode(code: string, message: string): never {
+    throw new RpcException({
+      message,
+      statusCode: HttpStatus.CONFLICT,
+      code,
+    });
+  }
 }
