@@ -36,6 +36,8 @@ import { firstValueFrom } from 'rxjs';
 import { PAYMENTS_EVENTS_CLIENT, ORGANIZATION_SERVICE } from 'src/config/services';
 import { ORDER_PATTERNS } from './patterns/order-patterns';
 import { ORGANIZATION_PATTERNS } from './patterns/organization-patterns';
+import { CashSession } from 'src/cash-sessions/entities/cash-session.entity';
+import { CashSessionStatus } from 'src/common/enums/cash-session-status.enum';
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
@@ -71,6 +73,21 @@ export class OrdersService {
     @Inject(ORGANIZATION_SERVICE)
     private readonly organizationClient: ClientProxy,
   ) { }
+
+  // Resolves the CashSession that is OPEN for this organization right now, so
+  // it can be stamped onto a new Order at creation time. orders-ms owns both
+  // entities (autoLoadEntities registers CashSession globally even though its
+  // repository is provided by CashSessionsModule), so this is a plain query
+  // within the same transaction/manager — no RPC involved.
+  private async resolveOpenCashSessionId(
+    manager: EntityManager,
+    organizationId: string,
+  ): Promise<string | null> {
+    const session = await manager.findOne(CashSession, {
+      where: { organizationId, status: CashSessionStatus.OPEN },
+    });
+    return session?.id ?? null;
+  }
 
   // ===============================
   // CREATE ORDER
@@ -109,6 +126,8 @@ export class OrdersService {
         }
       }
 
+      const cashSessionId = await this.resolveOpenCashSessionId(queryRunner.manager, organizationId);
+
       const order = queryRunner.manager.create(Order, {
         organizationId,
         userId,
@@ -117,6 +136,7 @@ export class OrdersService {
         total,
         customerName,
         scheduledFor: scheduledFor ?? null,
+        cashSessionId,
         orderNumber: await this.generateOrderNumber(organizationId, queryRunner.manager),
       });
 
@@ -143,6 +163,8 @@ export class OrdersService {
           unitPrice: item.unitPrice,
           quantity: item.quantity,
           countsTowardKitchenCapacity: item.countsTowardKitchenCapacity ?? true,
+          categoryId: item.categoryId ?? null,
+          categoryName: item.categoryName ?? null,
           total: itemTotal,
         });
 
@@ -242,6 +264,8 @@ export class OrdersService {
     await queryRunner.startTransaction();
 
     try {
+      const cashSessionId = await this.resolveOpenCashSessionId(queryRunner.manager, organizationId);
+
       if (orderType === OrderType.DINE_IN) {
         const table = await queryRunner.manager
           .createQueryBuilder(Table, 'table')
@@ -273,6 +297,7 @@ export class OrdersService {
           subtotal: 0,
           total: 0,
           scheduledFor: scheduledFor ?? null,
+          cashSessionId,
           orderNumber: await this.generateOrderNumber(organizationId, queryRunner.manager),
         });
 
@@ -306,6 +331,7 @@ export class OrdersService {
         subtotal: 0,
         total: 0,
         scheduledFor: scheduledFor ?? null,
+        cashSessionId,
         orderNumber: await this.generateOrderNumber(organizationId, queryRunner.manager),
       });
 
@@ -571,6 +597,8 @@ export class OrdersService {
         unitPrice: item.unitPrice,
         quantity: item.quantity,
         countsTowardKitchenCapacity,
+        categoryId: item.categoryId ?? null,
+        categoryName: item.categoryName ?? null,
         total: itemTotal,
       });
       await queryRunner.manager.save(orderItem);
@@ -952,6 +980,7 @@ export class OrdersService {
       tableId: order.tableId ?? null,
       partySize: order.partySize ?? null,
       orderSource: order.orderSource ?? null,
+      cashSessionId: order.cashSessionId ?? null,
       customerId: order.customerId ?? null,
       customerName: order.customerName,
       customerPhone: order.customerPhone ?? null,

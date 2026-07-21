@@ -20,6 +20,7 @@ export { VoidReason };
 @Index(['organizationId', 'createdAt'])
 @Index(['organizationId', 'status'])
 @Index(['userId'])
+@Index(['cashSessionId'])
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -63,6 +64,13 @@ export class Order {
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   orderSource?: string;
+
+  // The cash session that was OPEN for this organization at creation time —
+  // never re-resolved afterward, even if the session closes before this order
+  // does. null when no cash session was open (e.g. online orders outside POS
+  // hours). Drives cash-session reporting (CashSessionsService.report/close).
+  @Column({ type: 'uuid', nullable: true })
+  cashSessionId?: string | null;
 
   @Column({
     type: 'enum',
@@ -145,3 +153,5 @@ export class Order {
 // PROD MIGRATION NOTE (TypeORM synchronize handles dev automatically; do NOT
 // run synchronize in production):
 //   ALTER TABLE orders ADD COLUMN "scheduledFor" timestamptz;
+//   ALTER TABLE orders ADD COLUMN "cashSessionId" uuid;
+//   CREATE INDEX "IDX_orders_cashSessionId" ON "orders" ("cashSessionId");

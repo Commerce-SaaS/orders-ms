@@ -58,6 +58,17 @@ export class OrderItem {
   @Column({ type: 'boolean', default: true })
   countsTowardKitchenCapacity: boolean;
 
+  // Snapshot of the product's category at order time (resolved once against
+  // product-ms by client-gateway, same as countsTowardKitchenCapacity above)
+  // — never re-resolved on read. Drives analytics category breakdowns
+  // without orders-ms having to query product-ms. Nullable: the category may
+  // be unresolved (product-ms unreachable) or the product may have none.
+  @Column({ type: 'uuid', nullable: true })
+  categoryId?: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  categoryName?: string | null;
+
   @Column({
     type: 'enum',
     enum: OrderItemStatus,
@@ -99,3 +110,5 @@ export class OrderItem {
 // PROD MIGRATION NOTE (TypeORM synchronize handles dev automatically; do NOT
 // run synchronize in production):
 //   ALTER TABLE order_items ADD COLUMN "countsTowardKitchenCapacity" boolean NOT NULL DEFAULT true;
+//   ALTER TABLE order_items ADD COLUMN "categoryId" uuid;
+//   ALTER TABLE order_items ADD COLUMN "categoryName" varchar(150);

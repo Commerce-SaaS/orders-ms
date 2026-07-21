@@ -37,6 +37,18 @@ export class CreateOrderItemDto {
   @IsBoolean()
   countsTowardKitchenCapacity?: boolean;
 
+  // Category snapshot resolved by the caller from product-ms (same category
+  // lookup as countsTowardKitchenCapacity above). Persisted as-is on the
+  // OrderItem for analytics — not re-resolved by orders-ms.
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 150)
+  categoryName?: string;
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

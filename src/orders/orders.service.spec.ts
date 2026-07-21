@@ -1,8 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { OrdersService } from './orders.service';
+import { Order } from './entities/order.entity';
 import { OrderStatus } from '../common/enums/order-status.enum';
 import { PaymentStatus } from '../common/enums/payment-status.enum';
+import { PAYMENTS_EVENTS_CLIENT, ORGANIZATION_SERVICE } from '../config/services';
 
 const ORG_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const ORG_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -29,8 +32,23 @@ describe('OrdersService — IDOR regression', () => {
     update: jest.fn(),
   };
 
+  const fakeQueryRunner = {
+    connect: jest.fn(),
+    startTransaction: jest.fn(),
+    commitTransaction: jest.fn(),
+    rollbackTransaction: jest.fn(),
+    release: jest.fn(),
+    manager: {
+      save: jest.fn((_entity: any, o: any) => Promise.resolve(o)),
+      update: jest.fn(),
+      create: jest.fn((_entity: any, o: any) => o),
+      findOne: jest.fn(),
+    },
+  };
+
   const fakeDataSource = {
     getRepository: jest.fn(() => fakeRepo),
+    createQueryRunner: jest.fn(() => fakeQueryRunner),
   };
 
   function makeRows() {
@@ -96,6 +114,9 @@ describe('OrdersService — IDOR regression', () => {
       providers: [
         OrdersService,
         { provide: DataSource, useValue: fakeDataSource },
+        { provide: getRepositoryToken(Order), useValue: fakeRepo },
+        { provide: PAYMENTS_EVENTS_CLIENT, useValue: { emit: jest.fn(), send: jest.fn() } },
+        { provide: ORGANIZATION_SERVICE, useValue: { emit: jest.fn(), send: jest.fn() } },
       ],
     }).compile();
 
@@ -174,7 +195,7 @@ describe('OrdersService — IDOR regression', () => {
         organizationId: ORG_A,
         status: OrderStatus.IN_PROGRESS,
       } as any);
-      expect(fakeRepo.save).toHaveBeenCalledTimes(1);
+      expect(fakeQueryRunner.manager.save).toHaveBeenCalledTimes(1);
       expect((result as any).id).toBe(ORDER_A1);
     });
   });

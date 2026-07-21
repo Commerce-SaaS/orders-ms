@@ -6,6 +6,8 @@ import { PAYMENTS_EVENTS_CLIENT, ORGANIZATION_SERVICE } from './config/services'
 import { OrdersModule } from './orders/orders.module';
 import { TablesModule } from './tables/tables.module';
 import { SectorsModule } from './sectors/sectors.module';
+import { CashSessionsModule } from './cash-sessions/cash-sessions.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { RabbitMQModule } from './config/transports/rabbitmq.module';
 import { RedisModule } from './redis/redis.module';
 
@@ -42,6 +44,8 @@ import { RedisModule } from './redis/redis.module';
     OrdersModule,
     TablesModule,
     SectorsModule,
+    CashSessionsModule,
+    AnalyticsModule,
     RedisModule
   ],
   controllers: [],
