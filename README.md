@@ -1,821 +1,339 @@
-# 🛒 Orders Microservice (`orders-ms`)
+<h1 align="center">🧾 Orders Microservice · <code>orders-ms</code></h1>
 
-A NestJS microservice responsible for managing orders, tables, dining areas, cash sessions, kitchen workflows, and sales analytics for a restaurant POS platform.
+<p align="center">
+  <b>NestJS microservice</b> managing orders, tables, dining areas, cash sessions,<br/>
+  kitchen workflows and sales analytics for a restaurant POS platform.<br/>
+  <i>The operational core of the restaurant ecosystem.</i>
+</p>
 
-The service communicates exclusively through RabbitMQ and acts as the operational core of the restaurant ecosystem.
+<p align="center">
+  <img src="https://img.shields.io/badge/NestJS-11-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/PostgreSQL-TypeORM-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/RabbitMQ-RPC%20%2B%20events-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white" />
+  <img src="https://img.shields.io/badge/Redis-configured-DC382D?style=for-the-badge&logo=redis&logoColor=white" />
+</p>
 
----
+<p align="center">
+  <img src="https://img.shields.io/badge/Transport-RabbitMQ%20only-orange?style=flat-square" />
+  <img src="https://img.shields.io/badge/Queue-orders__queue-8A2BE2?style=flat-square" />
+  <img src="https://img.shields.io/badge/Multi--tenant-yes-2E7D32?style=flat-square" />
+  <img src="https://img.shields.io/badge/Integration%20tests-Testcontainers-2496ED?style=flat-square&logo=docker&logoColor=white" />
+</p>
 
-# 📋 Table of Contents
+<br/>
 
-* Overview
-* Architecture
-* Features
-* Tech Stack
-* Getting Started
-* Environment Variables
-* RabbitMQ Patterns
-* Order Lifecycle
-* Restaurant Management
-* Analytics
-* Database Entities
-* Dependencies
-* Development Notes
+## 🚀 Overview
 
----
+`orders-ms` manages restaurant orders, POS orders, scheduled orders, order items, the kitchen workflow, tables, dining sectors, cash sessions, sales analytics and order scheduling — the entire operational flow from order creation to kitchen preparation and payment synchronization.
 
-# 🚀 Overview
+> [!IMPORTANT]
+> The service communicates **exclusively through RabbitMQ** and acts as the operational core of the restaurant ecosystem. Every restaurant operation ultimately passes through `orders-ms`.
 
-`orders-ms` manages:
+<br/>
 
-* Restaurant orders
-* POS orders
-* Scheduled orders
-* Order items
-* Kitchen workflow
-* Tables
-* Dining sectors
-* Cash sessions
-* Sales analytics
-* Order scheduling
+## 🏗️ Architecture
 
-The service is responsible for the entire operational flow from order creation to kitchen preparation and payment synchronization.
+```mermaid
+flowchart TB
+    GW["🌐 client-gateway"] -. "RabbitMQ RPC · orders_queue" .-> ORD
 
----
+    subgraph ORD["🧾 orders-ms"]
+        direction LR
+        A["Orders"] ~~~ B["Kitchen workflow"] ~~~ C["Tables"]
+        D["Sectors"] ~~~ E["Cash sessions"] ~~~ F["Analytics · Scheduled orders"]
+    end
 
-# 🏗️ Architecture
-
-```text
-                   ┌──────────────────┐
-                   │   Client Gateway │
-                   └────────┬─────────┘
-                            │ RabbitMQ
-                            ▼
-
-┌─────────────────────────────────────────────┐
-│                  orders-ms                  │
-├─────────────────────────────────────────────┤
-│ Orders                                      │
-│ Kitchen Workflow                            │
-│ Tables                                      │
-│ Sectors                                     │
-│ Cash Sessions                               │
-│ Analytics                                   │
-│ Scheduled Orders                            │
-└──────┬───────────────┬───────────────┬──────┘
-       │               │               │
-       ▼               ▼               ▼
- PostgreSQL       RabbitMQ      Organization-MS
-                         │
-                         ▼
-                   Payments-MS
+    ORD --> PG[("🐘 PostgreSQL")]
+    ORD -. "RPC organization.find_one" .-> ORGMS["🏢 organization-ms"]
+    ORD <-. "events" .-> PAYMS["💳 payments-ms"]
 ```
 
----
+<br/>
 
-# ✨ Features
+## ✨ Features
 
-* Dine-in orders
-* POS orders
-* Scheduled orders
-* Kitchen workflow management
-* Table management
-* Dining area management
-* Cash session tracking
-* Sales analytics
-* Payment synchronization
-* Multi-tenant architecture
-* Order scheduling validation
+Dine-in orders · POS orders · scheduled orders · kitchen workflow management · table management · dining-area management · cash-session tracking · sales analytics · payment synchronization · multi-tenant architecture · order-scheduling validation.
 
----
+<br/>
 
-# 🛠 Tech Stack
+## 🛠️ Tech Stack
 
-| Category               | Technology      |
-| ---------------------- | --------------- |
-| Framework              | NestJS 11       |
-| Language               | TypeScript 5    |
-| Database               | PostgreSQL      |
-| ORM                    | TypeORM         |
-| Messaging              | RabbitMQ        |
-| Cache                  | Redis           |
-| Validation             | class-validator |
-| Environment Validation | Zod             |
-| Testing                | Jest            |
-| Integration Testing    | Testcontainers  |
+| Category | Technology |
+|---|---|
+| Framework | NestJS 11 |
+| Language | TypeScript 5 |
+| Database | PostgreSQL |
+| ORM | TypeORM |
+| Messaging | RabbitMQ |
+| Cache | Redis |
+| Validation | class-validator |
+| Environment validation | Zod |
+| Testing | Jest |
+| Integration testing | Testcontainers |
 
----
+<br/>
 
-# ⚙️ Getting Started
+## ⚙️ Getting Started
 
-## Prerequisites
-
-* Node.js 20+
-* PostgreSQL
-* RabbitMQ
-* Docker (for integration tests)
-
----
-
-## Installation
+**Prerequisites:** Node.js 20+, PostgreSQL, RabbitMQ, Docker (for integration tests).
 
 ```bash
 npm install
-
 cp .env.example .env
-
 npm run start:dev
 ```
 
----
+<details>
+<summary><b>📜 Available scripts</b></summary>
 
-## Available Scripts
+<br/>
 
 ```bash
 npm run build
-
-npm run start
-npm run start:dev
-npm run start:debug
-npm run start:prod
-
+npm run start        # start / start:dev / start:debug / start:prod
 npm run lint
 npm run format
-
-npm run test
-npm run test:watch
-npm run test:cov
+npm run test         # test / test:watch / test:cov
 npm run test:integration
 npm run test:e2e
 ```
 
----
+</details>
 
-# 🌍 Environment Variables
+<br/>
 
-| Variable                  | Required | Description           |
-| ------------------------- | -------- | --------------------- |
-| NODE_ENV                  | ✅        | Environment           |
-| PORT                      | ❌        | Application port      |
-| DB_HOST                   | ✅        | PostgreSQL host       |
-| DB_PORT                   | ❌        | PostgreSQL port       |
-| POSTGRES_USER             | ✅        | Database user         |
-| POSTGRES_PASSWORD         | ✅        | Database password     |
-| POSTGRES_DB               | ✅        | Database name         |
-| RABBITMQ_URL              | ✅        | RabbitMQ connection   |
-| RABBITMQ_QUEUE            | ✅        | Main RPC queue        |
-| RMQ_EVENTS_QUEUE_ORDERS   | ✅        | Orders events queue   |
-| RMQ_EVENTS_QUEUE_PAYMENTS | ✅        | Payments events queue |
-| REDIS_HOST                | ✅        | Redis host            |
-| REDIS_PORT                | ❌        | Redis port            |
-| REDIS_PASS                | ✅        | Redis password        |
+## 🌍 Environment Variables
 
----
+| Variable | Required | Description |
+|---|:---:|---|
+| `NODE_ENV` | ✅ | Environment |
+| `PORT` | ❌ | Application port |
+| `DB_HOST` | ✅ | PostgreSQL host |
+| `DB_PORT` | ❌ | PostgreSQL port |
+| `POSTGRES_USER` | ✅ | Database user |
+| `POSTGRES_PASSWORD` | ✅ | Database password |
+| `POSTGRES_DB` | ✅ | Database name |
+| `RABBITMQ_URL` | ✅ | RabbitMQ connection |
+| `RABBITMQ_QUEUE` | ✅ | Main RPC queue |
+| `RMQ_EVENTS_QUEUE_ORDERS` | ✅ | Orders events queue |
+| `RMQ_EVENTS_QUEUE_PAYMENTS` | ✅ | Payments events queue |
+| `REDIS_HOST` | ✅ | Redis host |
+| `REDIS_PORT` | ❌ | Redis port |
+| `REDIS_PASS` | ✅ | Redis password |
 
-# 📨 RabbitMQ Patterns
+<br/>
 
-## Orders
+## 📨 RabbitMQ Patterns
 
-| Pattern                  |
-| ------------------------ |
-| order.create             |
-| order.create_pos         |
-| order.find_all           |
-| order.find_one           |
-| order.update             |
-| order.add_item           |
-| order.remove_item        |
-| order.update_item        |
-| order.available_slots    |
-| order.send_to_kitchen    |
-| order.mark_item_prepared |
+Consumed and published events at a glance:
 
----
+| Direction | Events |
+|---|---|
+| 📥 **Consumed** | `payment.status` · `customer.anonymized` |
+| 📤 **Published** | `order.cancelled` |
 
-## Tables
+<details>
+<summary><b>🧾 Orders patterns</b></summary>
 
-| Pattern                |
-| ---------------------- |
-| table.create           |
-| table.find_all         |
-| table.find_one         |
-| table.update           |
-| table.soft_delete      |
-| table.update_positions |
-| table.restore          |
+<br/>
 
----
+`order.create` · `order.create_pos` · `order.find_all` · `order.find_one` · `order.update` · `order.add_item` · `order.remove_item` · `order.update_item` · `order.available_slots` · `order.send_to_kitchen` · `order.mark_item_prepared`
 
-## Sectors
+</details>
 
-| Pattern            |
-| ------------------ |
-| sector.create      |
-| sector.find_all    |
-| sector.find_one    |
-| sector.update      |
-| sector.soft_delete |
-| sector.restore     |
+<details>
+<summary><b>🪑 Tables patterns</b></summary>
 
----
+<br/>
 
-## Cash Sessions
+`table.create` · `table.find_all` · `table.find_one` · `table.update` · `table.soft_delete` · `table.update_positions` · `table.restore`
 
-| Pattern               |
-| --------------------- |
-| cash_session.open     |
-| cash_session.close    |
-| cash_session.current  |
-| cash_session.find_one |
-| cash_session.find_all |
-| cash_session.report   |
+</details>
 
----
+<details>
+<summary><b>🗺️ Sectors patterns</b></summary>
 
-## Analytics
+<br/>
 
-| Pattern                             |
-| ----------------------------------- |
-| analytics.orders.overview           |
-| analytics.orders.sales_by_type      |
-| analytics.orders.top_products       |
-| analytics.orders.category_breakdown |
+`sector.create` · `sector.find_all` · `sector.find_one` · `sector.update` · `sector.soft_delete` · `sector.restore`
 
----
+</details>
 
-## Consumed Events
+<details>
+<summary><b>💰 Cash Sessions patterns</b></summary>
 
-| Event               |
-| ------------------- |
-| payment.status      |
-| customer.anonymized |
+<br/>
 
----
+`cash_session.open` · `cash_session.close` · `cash_session.current` · `cash_session.find_one` · `cash_session.find_all` · `cash_session.report`
 
-## Published Events
+</details>
 
-| Event           |
-| --------------- |
-| order.cancelled |
+<details>
+<summary><b>📊 Analytics patterns</b></summary>
 
----
+<br/>
 
-# 🍽️ Order Lifecycle
+`analytics.orders.overview` · `analytics.orders.sales_by_type` · `analytics.orders.top_products` · `analytics.orders.category_breakdown`
 
-The typical order flow follows the process below:
+</details>
 
-```text
-Customer Order
-       │
-       ▼
-Create Order
-       │
-       ▼
-Add Items
-       │
-       ▼
-Send To Kitchen
-       │
-       ▼
-Prepare Items
-       │
-       ▼
-Payment Completed
-       │
-       ▼
-Order Closed
+<br/>
+
+## 🍽️ Order Lifecycle
+
+```mermaid
+flowchart LR
+    A["🧾 Create order"] --> B["➕ Add items"] --> C["👨‍🍳 Send to kitchen"] --> D["🍳 Prepare items"] --> E["💳 Payment completed"] --> F["✅ Order closed"]
 ```
 
----
+<details>
+<summary><b>🍕 Order types</b></summary>
 
-# 🍕 Order Types
+<br/>
 
-## Dine-In Orders
+- **Dine-In** — orders linked to restaurant tables (e.g. Table 12: Pizza Margherita, Coca-Cola, Tiramisu).
+- **POS** — walk-in / takeaway orders created directly from the POS (e.g. Counter Order: Burger, Fries, Soft Drink).
+- **Scheduled** — orders planned for a future date/time. The service validates opening hours, available time slots, maximum dishes per slot and scheduling intervals; organization settings are retrieved from `organization-ms`.
 
-Orders linked to restaurant tables.
+</details>
 
-Example:
+<details>
+<summary><b>👨‍🍳 Kitchen workflow</b></summary>
 
-```text
-Table 12
-├── Pizza Margherita
-├── Coca-Cola
-└── Tiramisu
+<br/>
+
+`Order created → Send to kitchen → Item preparation → Item ready → Order completed`
+
+Supported actions: send order to kitchen · mark items as prepared · track preparation progress.
+
+</details>
+
+<br/>
+
+## 🪑 Restaurant Management
+
+<details>
+<summary><b>Tables</b> — physical restaurant tables (Table 1, Table 15, Terrace A3…)</summary>
+
+<br/>
+
+Create · update · restore · reposition on floor plans · soft delete.
+
+</details>
+
+<details>
+<summary><b>Sectors</b> — dining areas (Main Room, Terrace, VIP Area, Bar…)</summary>
+
+<br/>
+
+Create · update · restore · soft delete.
+
+</details>
+
+<br/>
+
+## 💰 Cash Sessions
+
+Cash sessions track cashier activity through the lifecycle:
+
+```mermaid
+flowchart LR
+    O["🔓 Open session"] --> P["🧾 Process orders"] --> C["💵 Collect payments"] --> R["📄 Generate report"] --> X["🔒 Close session"]
 ```
 
----
+Features: open session · close session · current session lookup · historical reports · session reporting.
 
-## POS Orders
+<br/>
 
-Walk-in or takeaway orders created directly from the POS.
+## 📊 Analytics
 
-Example:
+<details>
+<summary><b>Available reports</b></summary>
 
-```text
-Counter Order
-├── Burger
-├── Fries
-└── Soft Drink
+<br/>
+
+- **Orders Overview** — total orders, revenue, average ticket, order trends.
+- **Sales By Type** — breakdown across Dine-In, POS, Scheduled Orders.
+- **Top Products** — best-selling products, quantity sold, revenue generated.
+- **Category Breakdown** — sales per category, revenue per category, product distribution.
+
+</details>
+
+<br/>
+
+## 🗄️ Database Entities
+
+<details>
+<summary><b>View all entities</b></summary>
+
+<br/>
+
+| Entity | Purpose | Main fields |
+|---|---|---|
+| **Order** | A customer order | `organizationId`, `customerName`, `status`, `type`, `total`, `scheduledAt` |
+| **OrderItem** | A product inside an order | `orderId`, `productId`, `quantity`, `unitPrice` |
+| **OrderItemExtra** | Selected extras (Extra Cheese, Burrata, Bacon…) | — |
+| **OrderItemRemovedIngredient** | Removed ingredients (No Onion, No Tomato…) | — |
+| **OrderSlot** | Available scheduling windows (future orders, delivery/pickup slots) | — |
+| **Table** | A restaurant table | `organizationId`, `sectorId`, `name`, `position` |
+| **Sector** | A dining area | `organizationId`, `name` |
+| **CashSession** | A cashier work session | `organizationId`, `openedAt`, `closedAt`, `openingAmount`, `closingAmount` |
+
+</details>
+
+<br/>
+
+## 🔗 External Dependencies
+
+| Dependency | Usage |
+|---|---|
+| 🐘 **PostgreSQL** | Stores orders, order items, tables, sectors, cash sessions |
+| 🐇 **RabbitMQ** | RPC + event-driven communication, payment synchronization |
+| 💳 **payments-ms** | Consumes `payment.status`; publishes `order.cancelled` |
+| 🏢 **organization-ms** | Scheduling validation — opening hours, intervals, slot capacity, restaurant config |
+| 🔐 **auth-ms** | Consumes `customer.anonymized` to remove customer-identifiable info from historical orders |
+
+### Service integration flow
+
+```mermaid
+flowchart TB
+    A["🧾 Create scheduled order"] --> B["✅ Validate organization settings"]
+    B -. "RPC" .-> ORG["🏢 organization-ms"]
+    B --> C["📦 Order created"] --> D["💳 Payment processing"]
+    D -. "event" .-> PAY["💳 payments-ms"]
+    PAY -->|"payment.status"| E["🔄 Order updated"]
 ```
 
----
+<br/>
 
-## Scheduled Orders
+## 🧪 Testing
 
-Orders planned for a future date and time.
+| Type | Command | Uses |
+|---|---|---|
+| Unit | `npm run test` | Jest · ts-jest |
+| Integration | `npm run test:integration` | Testcontainers · PostgreSQL containers (Docker required) |
 
-The service validates:
+<br/>
 
-* Opening hours
-* Available time slots
-* Maximum dishes per slot
-* Scheduling intervals
+## ⚠️ Development Notes / Limitations
 
-Organization settings are retrieved from `organization-ms`.
+> [!WARNING]
+> Tracked openly and worth verifying before production.
 
----
+- **Unimplemented pattern:** the constant `order.cancel` exists but currently has no handler.
+- **Env example:** `.env.example` is missing `RMQ_EVENTS_QUEUE_PAYMENTS` and `REDIS_PASS`, both required by startup validation.
+- **Redis:** infrastructure is configured and initialized, but no active usage was found in the current codebase.
+- **Duplicate definitions:** `TABLE_PATTERNS` and `Table` entities are duplicated under different modules.
+- **E2E testing:** `npm run test:e2e` exists but references a configuration file not currently present in the repository.
+- **Database migrations:** none found — dev relies on `synchronize: true`; the production migration strategy should be documented separately.
 
-# 👨‍🍳 Kitchen Workflow
+<br/>
 
-Kitchen operations are managed directly through the service.
+## 📈 Service Scope
 
-Workflow:
+`orders-ms` is the operational heart of the restaurant platform — order management, kitchen workflow, table management, dining areas, cash sessions, scheduling, analytics and payment synchronization. Every restaurant operation ultimately passes through it.
 
-```text
-Order Created
-      │
-      ▼
-Send To Kitchen
-      │
-      ▼
-Item Preparation
-      │
-      ▼
-Item Ready
-      │
-      ▼
-Order Completed
-```
-
-Supported actions:
-
-* Send order to kitchen
-* Mark items as prepared
-* Track preparation progress
-
----
-
-# 🪑 Restaurant Management
-
-## Tables
-
-Represents physical restaurant tables.
-
-Examples:
-
-```text
-Table 1
-Table 2
-Table 15
-Terrace A3
-```
-
-Capabilities:
-
-* Create tables
-* Update tables
-* Restore tables
-* Reposition tables on floor plans
-* Soft delete tables
-
----
-
-## Sectors
-
-Represents dining areas.
-
-Examples:
-
-```text
-Main Room
-Terrace
-VIP Area
-Bar
-```
-
-Capabilities:
-
-* Create sectors
-* Update sectors
-* Restore sectors
-* Soft delete sectors
-
----
-
-# 💰 Cash Sessions
-
-Cash sessions track cashier activity.
-
-Lifecycle:
-
-```text
-Open Session
-      │
-      ▼
-Process Orders
-      │
-      ▼
-Collect Payments
-      │
-      ▼
-Generate Report
-      │
-      ▼
-Close Session
-```
-
-Available features:
-
-* Open session
-* Close session
-* Current session lookup
-* Historical reports
-* Session reporting
-
----
-
-# 📊 Analytics
-
-The service provides operational analytics.
-
-Available reports:
-
-### Orders Overview
-
-Provides:
-
-* Total orders
-* Revenue
-* Average ticket
-* Order trends
-
----
-
-### Sales By Type
-
-Breakdown by:
-
-```text
-Dine-In
-POS
-Scheduled Orders
-```
-
----
-
-### Top Products
-
-Provides:
-
-* Best-selling products
-* Quantity sold
-* Revenue generated
-
----
-
-### Category Breakdown
-
-Provides:
-
-* Sales per category
-* Revenue per category
-* Product distribution
-
----
-
-# 🗄 Database Entities
-
-## Order
-
-Represents a customer order.
-
-Main fields:
-
-* organizationId
-* customerName
-* status
-* type
-* total
-* scheduledAt
-
----
-
-## OrderItem
-
-Represents a product inside an order.
-
-Main fields:
-
-* orderId
-* productId
-* quantity
-* unitPrice
-
----
-
-## OrderItemExtra
-
-Represents selected extras.
-
-Examples:
-
-```text
-Extra Cheese
-Burrata
-Bacon
-```
-
----
-
-## OrderItemRemovedIngredient
-
-Represents removed ingredients.
-
-Examples:
-
-```text
-No Onion
-No Tomato
-No Cheese
-```
-
----
-
-## OrderSlot
-
-Represents available scheduling windows.
-
-Used for:
-
-* Future orders
-* Delivery slots
-* Pickup scheduling
-
----
-
-## Table
-
-Represents a restaurant table.
-
-Main fields:
-
-* organizationId
-* sectorId
-* name
-* position
-
----
-
-## Sector
-
-Represents a dining area.
-
-Main fields:
-
-* organizationId
-* name
-
----
-
-## CashSession
-
-Represents a cashier work session.
-
-Main fields:
-
-* organizationId
-* openedAt
-* closedAt
-* openingAmount
-* closingAmount
-
----
-
-# 🔗 External Dependencies
-
-## PostgreSQL
-
-Stores:
-
-* Orders
-* Order Items
-* Tables
-* Sectors
-* Cash Sessions
-
----
-
-## RabbitMQ
-
-Handles:
-
-* RPC communication
-* Event-driven communication
-* Payment synchronization
-
----
-
-## Payments-MS
-
-Used for:
-
-* Payment status updates
-* Order cancellation events
-
-Consumed event:
-
-```text
-payment.status
-```
-
-Published event:
-
-```text
-order.cancelled
-```
-
----
-
-## Organization-MS
-
-Used for scheduling validation.
-
-Retrieved settings:
-
-* Opening hours
-* Scheduling intervals
-* Slot capacity
-* Restaurant configuration
-
----
-
-## Auth-MS
-
-Consumed event:
-
-```text
-customer.anonymized
-```
-
-Used to remove customer-identifiable information from historical orders.
-
----
-
-# 🔄 Service Integration Flow
-
-```text
-Create Scheduled Order
-          │
-          ▼
-Validate Organization Settings
-          │
-          ▼
-Organization-MS
-          │
-          ▼
-Order Created
-          │
-          ▼
-Payment Processing
-          │
-          ▼
-Payments-MS
-          │
-          ▼
-Payment Status Event
-          │
-          ▼
-Order Updated
-```
-
----
-
-# 🧪 Testing
-
-The service includes:
-
-### Unit Tests
-
-```bash
-npm run test
-```
-
-Uses:
-
-* Jest
-* ts-jest
-
----
-
-### Integration Tests
-
-```bash
-npm run test:integration
-```
-
-Uses:
-
-* Testcontainers
-* PostgreSQL containers
-
-Docker must be available locally.
-
----
-
-# ⚠️ Development Notes
-
-## Current Limitations
-
-### Unimplemented Pattern
-
-The following constant exists but currently has no handler:
-
-```text
-order.cancel
-```
-
----
-
-### Environment Example
-
-`.env.example` is missing:
-
-```text
-RMQ_EVENTS_QUEUE_PAYMENTS
-REDIS_PASS
-```
-
-Both are required by startup validation.
-
----
-
-### Redis
-
-Redis infrastructure is configured and initialized, but no active usage was found in the current codebase.
-
----
-
-### Duplicate Definitions
-
-The repository currently contains duplicated definitions for:
-
-* `TABLE_PATTERNS`
-* `Table` entities
-
-under different modules.
-
----
-
-### E2E Testing
-
-The following script exists:
-
-```bash
-npm run test:e2e
-```
-
-but references a configuration file that is not currently present in the repository.
-
----
-
-### Database Migrations
-
-No migration files were found.
-
-Development environments rely on:
-
-```text
-synchronize: true
-```
-
-while production migration strategy should be documented separately.
-
----
-
-# 📈 Service Scope
-
-`orders-ms` is the operational heart of the restaurant platform.
-
-Responsibilities include:
-
-* Order management
-* Kitchen workflow
-* Table management
-* Dining areas
-* Cash sessions
-* Scheduling
-* Analytics
-* Payment synchronization
-
-Every restaurant operation ultimately passes through `orders-ms`.
-
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=80&section=footer" />
+</p>
