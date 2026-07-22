@@ -1,13 +1,10 @@
-import { IsBoolean, IsOptional, IsUUID } from "class-validator";
+import { IsOptional, IsUUID } from 'class-validator';
 
 export class FindOneByOrgDto {
-  @IsUUID()
-  id: string;
+  @IsUUID() id: string;
+  @IsUUID() organizationId: string;
 
-  @IsUUID()
-  organizationId: string;
-  
-  @IsBoolean()
   @IsOptional()
-  withDeleted?: boolean;
+  @IsUUID()
+  userId?: string;
 }

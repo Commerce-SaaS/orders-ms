@@ -33,13 +33,29 @@ export class OrderItemExtra {
   @Column({ length: 100 })
   name: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      from: (v: string) => parseFloat(v),
+      to: (v: number) => v,
+    },
+  })
   price: number;
 
   @Column({ type: 'int', default: 1 })
   quantity: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      from: (v: string) => parseFloat(v),
+      to: (v: number) => v,
+    },
+  })
   total: number;
 
   @CreateDateColumn()

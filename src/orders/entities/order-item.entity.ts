@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { OrderItemRemovedIngredient } from './order-item-removed-ingredient.entity';
 import { OrderItemExtra } from './order-item-extra.entity';
+import { OrderItemStatus } from 'src/common/enums/order-item-status.enum';
 
 @Entity('order_items')
 @Index(['orderId', 'organizationId'])
@@ -37,13 +38,53 @@ export class OrderItem {
   @Column({ length: 150 })
   name: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      from: (v: string) => parseFloat(v),
+      to: (v: number) => v,
+    },
+  })
   unitPrice: number;
 
   @Column({ type: 'int' })
   quantity: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  // Snapshot of the product's category flag at order time — see
+  // Category.countsTowardKitchenCapacity in product-ms. Drives how many
+  // "dishes" this item occupies against its OrderSlot's capacity.
+  @Column({ type: 'boolean', default: true })
+  countsTowardKitchenCapacity: boolean;
+
+  // Snapshot of the product's category at order time (resolved once against
+  // product-ms by client-gateway, same as countsTowardKitchenCapacity above)
+  // — never re-resolved on read. Drives analytics category breakdowns
+  // without orders-ms having to query product-ms. Nullable: the category may
+  // be unresolved (product-ms unreachable) or the product may have none.
+  @Column({ type: 'uuid', nullable: true })
+  categoryId?: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  categoryName?: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: OrderItemStatus,
+    default: OrderItemStatus.NEW,
+  })
+  status: OrderItemStatus;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      from: (v: string) => parseFloat(v),
+      to: (v: number) => v,
+    },
+  })
   total: number;
 
   // 🔥 Extras
@@ -65,3 +106,9 @@ export class OrderItem {
   @CreateDateColumn()
   createdAt: Date;
 }
+
+// PROD MIGRATION NOTE (TypeORM synchronize handles dev automatically; do NOT
+// run synchronize in production):
+//   ALTER TABLE order_items ADD COLUMN "countsTowardKitchenCapacity" boolean NOT NULL DEFAULT true;
+//   ALTER TABLE order_items ADD COLUMN "categoryId" uuid;
+//   ALTER TABLE order_items ADD COLUMN "categoryName" varchar(150);

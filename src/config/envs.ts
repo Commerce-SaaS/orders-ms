@@ -15,8 +15,10 @@ const envSchema = z
     }),
     RABBITMQ_QUEUE: z.string().min(1, 'RABBITMQ_QUEUE cannot be empty'),
     RMQ_EVENTS_QUEUE_ORDERS: z.string().min(1, 'RMQ_EVENTS_QUEUE_ORDERS cannot be empty'),
+    RMQ_EVENTS_QUEUE_PAYMENTS: z.string().min(1, 'RMQ_EVENTS_QUEUE_PAYMENTS cannot be empty'),
     REDIS_HOST: z.string(),
     REDIS_PORT: z.coerce.number().default(6379),
+    REDIS_PASS: z.string(),
   })
   .required();
 
@@ -41,6 +43,8 @@ export const envs = {
   rabbitmqUrl: parsedEnv.data.RABBITMQ_URL,
   rabbitmqQueue: parsedEnv.data.RABBITMQ_QUEUE,
   rabbitmqOrdersEventQueue: parsedEnv.data.RMQ_EVENTS_QUEUE_ORDERS,
+  rabbitmqPaymentEventQueue: parsedEnv.data.RMQ_EVENTS_QUEUE_PAYMENTS,
   redisHost: parsedEnv.data.REDIS_HOST,
   redisPort: parsedEnv.data.REDIS_PORT,
+  redisPass: parsedEnv.data.REDIS_PASS
 };

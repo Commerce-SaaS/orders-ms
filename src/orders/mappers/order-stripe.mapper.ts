@@ -1,4 +1,3 @@
-import { OrderItem } from "../entities/order-item.entity";
 import { Order } from "../entities/order.entity";
 
 export class OrderStripeMapper {
